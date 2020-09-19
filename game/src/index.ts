@@ -1,9 +1,7 @@
-import Game from "./components/game";
+import ThynsGame from "./components/game";
 
 try {
-  const game = new Game();
-
-  game.init();
+  ThynsGame.init();
 } catch (e) {
   console.log(e);
 }
