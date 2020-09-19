@@ -15,6 +15,11 @@ export default class ThynsGame extends PureComponent {
       width: window.innerWidth,
       height: window.innerHeight,
       scene: InitialScene,
+      physics: {
+        arcade: {
+          gravity: { x: 0, y: 0 },
+        },
+      },
     };
 
     this.game = new Phaser.Game(config);
