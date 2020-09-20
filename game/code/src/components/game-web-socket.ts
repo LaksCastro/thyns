@@ -1,40 +1,56 @@
-import { GameState } from "../aliases/game";
-import { Listener } from "../aliases/utils";
+import { GameState, Player } from "../aliases/game";
+import { Listener, ListenerHashMap } from "../aliases/utils";
 
 import GameEvents from "./game-events";
 import PureComponent from "./pure-component";
 
 export default class GameWebSocket extends PureComponent {
   static socket: SocketIOClient.Socket;
-  static listeners: Listener<GameState>[] = [];
+  static listeners: ListenerHashMap<GameState> = {};
+  private static currentState: GameState;
 
   static async createConnection(): Promise<void> {
     GameWebSocket.socket = io("http://localhost:3000");
 
     return new Promise(function (resolve) {
-      GameWebSocket.socket.on("connect", resolve);
+      GameWebSocket.socket.on("connect", () => {
+        GameWebSocket.socket.on("INIT_STATE", (initialState: GameState) => {
+          console.log("INitial state");
+          console.log(initialState);
+          GameWebSocket.currentState = initialState;
+          resolve();
+        });
+      });
     });
   }
 
   static startListeningServer(): void {
     GameWebSocket.socket.on(GameEvents.STATE_CHANGED, (newState: GameState) => {
-      GameWebSocket.listeners.forEach((listener) =>
-        listener.callback(newState)
-      );
+      GameWebSocket.currentState = newState;
+
+      Object.keys(GameWebSocket.listeners).forEach((key) => {
+        GameWebSocket.listeners[key](GameWebSocket.currentState);
+      });
     });
   }
 
-  static emitNewState(newState: GameState): void {
-    GameWebSocket.socket.emit(GameEvents.STATE_CHANGED, newState);
+  static emitNewState(playerId: string, newState: Player): void {
+    GameWebSocket.socket.emit(GameEvents.STATE_CHANGED, playerId, newState);
   }
 
-  static addStateListener(listener: Listener<GameState>): void {
-    GameWebSocket.listeners.push(listener);
+  static registerPlayer(id: string): void {
+    GameWebSocket.socket.emit(GameEvents.REGISTER_PLAYER, id);
+  }
+
+  static getCurrentState(): GameState {
+    return GameWebSocket.currentState;
+  }
+
+  static addStateListener(key: string, listener: Listener<GameState>): void {
+    GameWebSocket.listeners[key] = listener;
   }
 
   static removeStateListener(key: string): void {
-    GameWebSocket.listeners = this.listeners.filter(
-      (listener) => listener.key !== key
-    );
+    delete GameWebSocket.listeners[key];
   }
 }

@@ -3,11 +3,14 @@ import { Vector } from "matter";
 export type Player = {
   position: Vector;
   animation: string;
-  currentSprite: string;
+  animationIsPlaying: boolean;
+  currentFrame: string;
+  currentTexture: string;
   id: string;
-  isViewer: boolean;
 };
 
 export type GameState = {
-  players: Player[];
+  players: {
+    [id: string]: Player;
+  };
 };

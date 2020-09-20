@@ -1,6 +1,6 @@
 import { Vector } from "matter";
 import "phaser";
-import { GameState } from "../aliases/game";
+import { GameState, Player } from "../aliases/game";
 import {
   PhaserArcadeSprite,
   PhaserCursorKeys,
@@ -11,9 +11,17 @@ import Config from "../components/config";
 import GameWebSocket from "../components/game-web-socket";
 import Utils from "../utils/utils";
 
+import debounce from "lodash.debounce";
+
+type RenderedPlayersHashMap = {
+  [id: string]: PhaserArcadeSprite;
+};
+
 export default class MainScene extends Phaser.Scene {
   cursors: PhaserCursorKeys;
+
   player: PhaserArcadeSprite;
+  renderedPlayers: RenderedPlayersHashMap = {};
 
   showDebug = false;
 
@@ -36,7 +44,74 @@ export default class MainScene extends Phaser.Scene {
     super("main-scene");
   }
 
-  stateListener(newState: GameState): void {}
+  stateListener(newState: GameState): void {
+    Object.keys(this.renderedPlayers)
+      .filter((player) => {
+        return !Object.keys(newState.players).includes(player);
+      })
+      .forEach((disconnectedId) => this.removePlayer(disconnectedId));
+
+    Object.keys(newState.players).forEach((playerId) => {
+      if (playerId === this.viewerPlayerId) {
+        return;
+      }
+
+      const newPlayerData = newState.players[playerId];
+      const renderedPlayerData = this.renderedPlayers[playerId];
+
+      // The player was rendered but changed the state
+      if (renderedPlayerData !== undefined) {
+        this.renderedPlayers[playerId].setPosition(
+          newPlayerData.position.x,
+          newPlayerData.position.y
+        );
+
+        if (newPlayerData.animationIsPlaying) {
+          this.renderedPlayers[playerId].anims.play(
+            newPlayerData.animation,
+            true
+          );
+        } else {
+          this.renderedPlayers[playerId].anims.stop();
+
+          this.renderedPlayers[playerId].setTexture(
+            newPlayerData.currentTexture,
+            newPlayerData.currentFrame
+          );
+        }
+
+        return;
+      }
+
+      // A new player, then render this and add to rendered players
+      const newPlayerSprite = this.renderPlayer(
+        newPlayerData.position.x,
+        newPlayerData.position.y
+      );
+
+      this.registerNewPlayer(playerId, newPlayerSprite);
+    });
+  }
+
+  registerNewPlayer(id: string, data: PhaserArcadeSprite): void {
+    if (this.renderedPlayers[id] !== undefined) {
+      console.warn("Tried to register a existent player!");
+      return;
+    }
+
+    this.renderedPlayers[id] = data;
+  }
+
+  removePlayer(id: string): void {
+    if (this.renderedPlayers[id] === undefined) {
+      console.warn("Tried to remove a no rendered-player!");
+      return;
+    }
+
+    this.renderedPlayers[id].destroy();
+
+    delete this.renderedPlayers[id];
+  }
 
   renderViewerPlayer(): void {
     const map = this.add.tilemap("map");
@@ -58,10 +133,7 @@ export default class MainScene extends Phaser.Scene {
 
     const spawnPoint = this.getSpawnPoint(map);
 
-    this.player = this.physics.add
-      .sprite(spawnPoint.x, spawnPoint.y, "atlas", "misa-front")
-      .setSize(30, 40)
-      .setOffset(0, 24);
+    this.player = this.renderPlayer(spawnPoint.x, spawnPoint.y);
 
     this.physics.add.collider(this.player, belowLayer);
 
@@ -69,7 +141,6 @@ export default class MainScene extends Phaser.Scene {
 
     camera.startFollow(this.player);
     camera.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-    camera.addListener("change", function (playerPosition: Vector) {});
 
     this.cursors = this.input.keyboard.createCursorKeys();
 
@@ -85,14 +156,17 @@ export default class MainScene extends Phaser.Scene {
     //   .setDepth(30);
   }
 
-  renderPlayer(): void {}
+  renderPlayer(x: number, y: number): PhaserArcadeSprite {
+    return this.physics.add
+      .sprite(x, y, "atlas", "misa-front")
+      .setSize(30, 40)
+      .setOffset(0, 24);
+  }
 
   definePlayerSpriteAnimations(): void {
-    const anims = this.anims;
-
-    anims.create({
+    this.anims.create({
       key: "misa-left-walk",
-      frames: anims.generateFrameNames("atlas", {
+      frames: this.anims.generateFrameNames("atlas", {
         prefix: "misa-left-walk.",
         start: 0,
         end: 3,
@@ -101,9 +175,9 @@ export default class MainScene extends Phaser.Scene {
       frameRate: 10,
       repeat: -1,
     });
-    anims.create({
+    this.anims.create({
       key: "misa-right-walk",
-      frames: anims.generateFrameNames("atlas", {
+      frames: this.anims.generateFrameNames("atlas", {
         prefix: "misa-right-walk.",
         start: 0,
         end: 3,
@@ -112,9 +186,9 @@ export default class MainScene extends Phaser.Scene {
       frameRate: 10,
       repeat: -1,
     });
-    anims.create({
+    this.anims.create({
       key: "misa-front-walk",
-      frames: anims.generateFrameNames("atlas", {
+      frames: this.anims.generateFrameNames("atlas", {
         prefix: "misa-front-walk.",
         start: 0,
         end: 3,
@@ -123,9 +197,9 @@ export default class MainScene extends Phaser.Scene {
       frameRate: 10,
       repeat: -1,
     });
-    anims.create({
+    this.anims.create({
       key: "misa-back-walk",
-      frames: anims.generateFrameNames("atlas", {
+      frames: this.anims.generateFrameNames("atlas", {
         prefix: "misa-back-walk.",
         start: 0,
         end: 3,
@@ -162,10 +236,14 @@ export default class MainScene extends Phaser.Scene {
   }
 
   create(): void {
-    GameWebSocket.addStateListener({
-      key: this.viewerPlayerId,
-      callback: this.stateListener,
-    });
+    GameWebSocket.addStateListener(
+      this.viewerPlayerId,
+      this.stateListener.bind(this)
+    );
+
+    GameWebSocket.registerPlayer(this.viewerPlayerId);
+
+    this.gameState = GameWebSocket.getCurrentState();
 
     this.definePlayerSpriteAnimations();
 
@@ -173,6 +251,18 @@ export default class MainScene extends Phaser.Scene {
   }
 
   update(): void {
+    GameWebSocket.emitNewState(this.viewerPlayerId, {
+      animation: this.player.anims.currentAnim?.key,
+      currentTexture: this.player.texture.key,
+      currentFrame: this.player.frame.name,
+      id: this.viewerPlayerId,
+      animationIsPlaying: this.player.anims.isPlaying,
+      position: {
+        x: this.player.x,
+        y: this.player.y,
+      },
+    });
+
     const normalSpeed = 150;
     const runSpeed = 500;
 
