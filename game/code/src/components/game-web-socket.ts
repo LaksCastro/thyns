@@ -10,13 +10,11 @@ export default class GameWebSocket extends PureComponent {
   private static currentState: GameState;
 
   static async createConnection(): Promise<void> {
-    GameWebSocket.socket = io("http://localhost:3000");
+    GameWebSocket.socket = io("https://thyns.lakscastro.repl.co");
 
     return new Promise(function (resolve) {
       GameWebSocket.socket.on("connect", () => {
         GameWebSocket.socket.on("INIT_STATE", (initialState: GameState) => {
-          console.log("INitial state");
-          console.log(initialState);
           GameWebSocket.currentState = initialState;
           resolve();
         });
