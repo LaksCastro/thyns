@@ -1,15 +1,31 @@
-# System and IDE files
-Thumbs.db
-.DS_Store
-.idea
-*.suo
-*.sublime-project
-*.sublime-workspace
+# CLIENT SIDE PROJECT
+game/code/Thumbs.db
+game/code/.DS_Store
+game/code/.idea
+game/code/*.suo
+game/code/*.sublime-project
+game/code/*.sublime-workspace
 
-dist/
+game/dist/
 
-# Vendors
+game/node_modules/
+
+game//npm-debug.log
+
+# SERVER SIDE PROJECT
+core/diff
+core/.idea/*
+core/.nyc_output
+core/build
+core/node_modules
+core/test
+core/src/**.js
+core/coverage
+core/*.log
+core/package-lock.json
+
+node_modules
+node_modules/**/*
+*/node_modules
+**/*/node_modules
 node_modules/
-
-# Build
-/npm-debug.log
