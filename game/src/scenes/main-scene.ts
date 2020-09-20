@@ -1,9 +1,7 @@
 import "phaser";
 import { PhaserArcadeSprite, PhaserCursorKeys } from "../aliases/phaser";
 
-import BrowserViewport from "../components/browser-viewport";
-
-export default class InitialScene extends Phaser.Scene {
+export default class MainScene extends Phaser.Scene {
   cursors: PhaserCursorKeys;
   player: PhaserArcadeSprite;
   showDebug = false;
@@ -29,12 +27,11 @@ export default class InitialScene extends Phaser.Scene {
 
     const decorationLayer = map.createStaticLayer("decoration", tileset, 0, 0);
     const floorLayer = map.createStaticLayer("floor", tileset, 0, 0);
-    const belowLayer = map.createStaticLayer("below-player", tileset, 0, 0);
-    const aboveLayer = map.createStaticLayer("above-player", tileset, 0, 0);
+    const wallsLayer = map.createStaticLayer("walls", tileset, 0, 0);
 
-    belowLayer.setCollisionByProperty({ collides: true });
+    wallsLayer.setCollisionByProperty({ collides: true });
 
-    aboveLayer.setDepth(10);
+    wallsLayer.setDepth(10);
     decorationLayer.setDepth(15);
 
     const spawnPoint = map.findObject(
@@ -46,11 +43,11 @@ export default class InitialScene extends Phaser.Scene {
     // a bit of whitespace, so I'm using setSize & setOffset to control the size of the this.player's body.
     this.player = this.physics.add
       .sprite(spawnPoint.x, spawnPoint.y, "atlas", "misa-front")
-      .setSize(30, 40)
+      .setSize(30, 25)
       .setOffset(0, 24);
 
     // Watch the this.player and bushLayer for collisions, for the duration of the scene:
-    this.physics.add.collider(this.player, belowLayer);
+    this.physics.add.collider(this.player, wallsLayer);
 
     // Create the this.player's walking animations from the texture atlas. These are stored in the global
     // animation manager so any sprite can access them.
@@ -126,7 +123,7 @@ export default class InitialScene extends Phaser.Scene {
       // Create bushLayer collision graphic above the this.player, but below the help text
       const graphics = this.add.graphics().setAlpha(0.75).setDepth(20);
 
-      belowLayer.renderDebug(graphics, {
+      wallsLayer.renderDebug(graphics, {
         tileColor: null, // Color of non-colliding tiles
         collidingTileColor: new Phaser.Display.Color(243, 134, 48, 255), // Color of colliding tiles
         faceColor: new Phaser.Display.Color(40, 39, 37, 255), // Color of colliding face edges

@@ -2,7 +2,7 @@ import "phaser";
 
 import { PhaserConfig } from "../aliases/phaser";
 
-import InitialScene from "../scenes/initial-scene";
+import ThynsScenes from "../scenes/index";
 import BrowserViewport from "./browser-viewport";
 import PureComponent from "./pure-component";
 
@@ -12,7 +12,7 @@ export default class ThynsGame extends PureComponent {
   static init(): void {
     const config: PhaserConfig = {
       type: Phaser.AUTO,
-      backgroundColor: "#fff9f9",
+      backgroundColor: "#25131A",
       width: BrowserViewport.width,
       height: BrowserViewport.height,
       physics: {
@@ -21,7 +21,7 @@ export default class ThynsGame extends PureComponent {
           gravity: { x: 0, y: 0 },
         },
       },
-      scene: InitialScene,
+      scene: ThynsScenes.InitialScene,
     };
 
     this.game = new Phaser.Game(config);
