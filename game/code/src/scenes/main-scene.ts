@@ -1,57 +1,93 @@
+import { Vector } from "matter";
 import "phaser";
-import { PhaserArcadeSprite, PhaserCursorKeys } from "../aliases/phaser";
+import { GameState } from "../aliases/game";
+import {
+  PhaserArcadeSprite,
+  PhaserCursorKeys,
+  PhaserTilemap,
+} from "../aliases/phaser";
+import { SceneConfig } from "../aliases/scene";
+import Config from "../components/config";
+import GameWebSocket from "../components/game-web-socket";
+import Utils from "../utils/utils";
 
 export default class MainScene extends Phaser.Scene {
   cursors: PhaserCursorKeys;
   player: PhaserArcadeSprite;
+
   showDebug = false;
+
+  viewerPlayerId = Utils.randomId();
+
+  gameState: GameState;
+
+  sceneConfig: SceneConfig = {
+    map: {
+      spawnPointKey: "spawn-point",
+      tilemapKey: "main-map",
+      tilesetKey: "dungeon-tileset",
+      objectsKey: "objects",
+      collisionProperty: { collides: true },
+    },
+    sceneKey: "main-scene",
+  };
 
   constructor() {
     super("main-scene");
   }
 
-  preload() {
-    this.load.image("tiles", "assets/tilesets/dungeon-tileset.png");
-    this.load.tilemapTiledJSON("map", "assets/tilemaps/main-map.json");
-    this.load.atlas(
-      "atlas",
-      "assets/atlas/atlas.png",
-      "assets/atlas/atlas.json"
-    );
-  }
+  stateListener(newState: GameState): void {}
 
-  create() {
+  renderViewerPlayer(): void {
     const map = this.add.tilemap("map");
 
-    const tileset = map.addTilesetImage("dungeon-tileset", "tiles");
+    const tileset = map.addTilesetImage(
+      this.sceneConfig.map.tilesetKey,
+      "tiles"
+    );
 
     const decorationLayer = map.createStaticLayer("decoration", tileset, 0, 0);
     const floorLayer = map.createStaticLayer("floor", tileset, 0, 0);
     const belowLayer = map.createStaticLayer("below-player", tileset, 0, 0);
     const aboveLayer = map.createStaticLayer("above-player", tileset, 0, 0);
 
-    belowLayer.setCollisionByProperty({ collides: true });
+    belowLayer.setCollisionByProperty(this.sceneConfig.map.collisionProperty);
 
     aboveLayer.setDepth(10);
     decorationLayer.setDepth(15);
 
-    const spawnPoint = map.findObject(
-      "objects",
-      (obj) => obj.name === "spawn-point"
-    ) as PhaserArcadeSprite;
+    const spawnPoint = this.getSpawnPoint(map);
 
-    // Create a sprite with physics enabled via the physics system. The image used for the sprite has
-    // a bit of whitespace, so I'm using setSize & setOffset to control the size of the this.player's body.
     this.player = this.physics.add
       .sprite(spawnPoint.x, spawnPoint.y, "atlas", "misa-front")
       .setSize(30, 40)
       .setOffset(0, 24);
 
-    // Watch the this.player and bushLayer for collisions, for the duration of the scene:
     this.physics.add.collider(this.player, belowLayer);
 
-    // Create the this.player's walking animations from the texture atlas. These are stored in the global
-    // animation manager so any sprite can access them.
+    const camera = this.cameras.main;
+
+    camera.startFollow(this.player);
+    camera.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
+    camera.addListener("change", function (playerPosition: Vector) {});
+
+    this.cursors = this.input.keyboard.createCursorKeys();
+
+    // Help text that has a "fixed" position on the screen
+    // this.add
+    //   .text(16, 16, 'Arrow keys to move\nPress "D" to show hitboxes', {
+    //     font: "18px monospace",
+    //     fill: "#000000",
+    //     padding: { x: 20, y: 10 },
+    //     backgroundColor: "#ffffff",
+    //   })
+    //   .setScrollFactor(0)
+    //   .setDepth(30);
+  }
+
+  renderPlayer(): void {}
+
+  definePlayerSpriteAnimations(): void {
     const anims = this.anims;
 
     anims.create({
@@ -98,41 +134,45 @@ export default class MainScene extends Phaser.Scene {
       frameRate: 10,
       repeat: -1,
     });
-
-    const camera = this.cameras.main;
-    camera.startFollow(this.player);
-    camera.setBounds(0, 0, map.widthInPixels, map.heightInPixels);
-
-    this.cursors = this.input.keyboard.createCursorKeys();
-
-    // Help text that has a "fixed" position on the screen
-    this.add
-      .text(16, 16, 'Arrow keys to move\nPress "D" to show hitboxes', {
-        font: "18px monospace",
-        fill: "#000000",
-        padding: { x: 20, y: 10 },
-        backgroundColor: "#ffffff",
-      })
-      .setScrollFactor(0)
-      .setDepth(30);
-
-    // Debug graphics
-    this.input.keyboard.once("keydown_D", () => {
-      // Turn on physics debugging to show this.player's hitbox
-      this.physics.world.createDebugGraphic();
-
-      // Create bushLayer collision graphic above the this.player, but below the help text
-      const graphics = this.add.graphics().setAlpha(0.75).setDepth(20);
-
-      belowLayer.renderDebug(graphics, {
-        tileColor: null, // Color of non-colliding tiles
-        collidingTileColor: new Phaser.Display.Color(243, 134, 48, 255), // Color of colliding tiles
-        faceColor: new Phaser.Display.Color(40, 39, 37, 255), // Color of colliding face edges
-      });
-    });
   }
 
-  update() {
+  getSpawnPoint(map: PhaserTilemap): PhaserArcadeSprite {
+    return map.findObject(
+      this.sceneConfig.map.objectsKey,
+      (obj) => obj.name === this.sceneConfig.map.spawnPointKey
+    ) as PhaserArcadeSprite;
+  }
+
+  preload(): void {
+    this.load.image(
+      "tiles",
+      Config.TILESET_PATH + this.sceneConfig.map.tilesetKey + ".png"
+    );
+
+    this.load.tilemapTiledJSON(
+      "map",
+      Config.TILEMAP_PATH + this.sceneConfig.map.tilemapKey + ".json"
+    );
+
+    this.load.atlas(
+      "atlas",
+      "assets/atlas/atlas.png",
+      "assets/atlas/atlas.json"
+    );
+  }
+
+  create(): void {
+    GameWebSocket.addStateListener({
+      key: this.viewerPlayerId,
+      callback: this.stateListener,
+    });
+
+    this.definePlayerSpriteAnimations();
+
+    this.renderViewerPlayer();
+  }
+
+  update(): void {
     const normalSpeed = 150;
     const runSpeed = 500;
 

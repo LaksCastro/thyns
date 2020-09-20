@@ -21,7 +21,7 @@ export default class ThynsGame extends PureComponent {
           gravity: { x: 0, y: 0 },
         },
       },
-      scene: ThynsScenes.InitialScene,
+      scene: ThynsScenes.MainScene,
     };
 
     this.game = new Phaser.Game(config);

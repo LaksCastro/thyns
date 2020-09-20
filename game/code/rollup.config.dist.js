@@ -1,4 +1,4 @@
-import commonjs from "rollup-plugin-commonjs";
+import commonjs from "@rollup/plugin-commonjs";
 import resolve from "rollup-plugin-node-resolve";
 import replace from "@rollup/plugin-replace";
 import { uglify } from "rollup-plugin-uglify";
@@ -20,6 +20,8 @@ export default {
     intro: "var global = window;",
   },
 
+  external: ["socket.io-client"],
+
   plugins: [
     //  Toggle the booleans here to enable / disable Phaser 3 features:
     replace({
@@ -37,12 +39,7 @@ export default {
     }),
 
     //  We need to convert the Phaser 3 CJS modules into a format Rollup can use:
-    commonjs({
-      include: ["node_modules/eventemitter3/**", "node_modules/phaser/**"],
-      exclude: ["node_modules/phaser/src/polyfills/requestAnimationFrame.js"],
-      sourceMap: false,
-      ignoreGlobal: true,
-    }),
+    commonjs(),
 
     //  See https://www.npmjs.com/package/rollup-plugin-typescript2 for config options
     typescript(),
